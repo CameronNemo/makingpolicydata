@@ -1,0 +1,110 @@
+---
+title: "POLI 171: Problem Set 1"
+author: "Cameron Nemo"
+date: "January 15, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Pt 1: Warm-up Exercises
+
+a) Creating a vector, ```data```, and calculate the mean, median, and sample variance of the observations.
+
+```{r}
+data <- c(30,3,24,30,21,28,22,5,27,10,28,17,5,10,6,38,17,30)
+cat("Mean: ", mean(data), "\nMedian: ", median(data), "\nVariance: ", var(data), "\n")
+```
+
+b) Creating a subset of the vector for observations lower than 15.
+
+```{r}
+subset <- data[data < 15]
+subset
+```
+
+c) Computing deviation of the subset.
+
+```{r}
+m <- mean(subset)
+dev <- subset - m
+sum(dev)
+```
+
+d) Computing squared deviation of the subset.
+
+```{r}
+sq.dev <- dev^2
+sum(sq.dev)
+```
+
+## Pt 2: Data Analysis: Voting Restrictions and Turnout
+
+```{r, echo=FALSE, message=FALSE}
+load("~/Documents/rprojects/poli171ps1/ANES12.rdata")
+```
+
+### Question 1
+
+a) Frequency tables of Race, Gender, and PartyID.
+
+```{r}
+table(data$Race)
+table(data$Gender)
+table(data$PartyID)
+```
+
+b) Density plot of Age.
+
+```{r}
+plot(density(na.omit(data$Age)), xlab="Age", main="Age Density Plot")
+```
+
+c) The sample is not representative of the US voting age population. "White", "Hispanic", and "Asian" are underrepresented while "Black" is overrepresented. Furthermore, females and democrats are overrepresented in the sample. Compare the relative frequency of each race in the sample with the US Census Bureau's 2015 American Community Survey demographics.
+
+```{r}
+table(data$Race) / length(data$Race)
+```
+[2015 ACS 1-Year Estimates](http://proximityone.com/graphics/cvap_2015_us.gif)
+
+### Question 2
+
+Calculating turnout rate for entire sample and individual racial groups.
+
+```{r}
+length(data$Voted[data$Voted == 1]) / length(data$Voted)
+
+for (r in na.omit(unique(data$Race))) {
+  cat(r, mean(data$Voted[data$Race == r], na.rm=TRUE), '\n')
+}
+```
+
+### Question 3
+
+a) Creating a new variable, ```White```.
+
+```{r}
+data$White <- as.numeric(data$Race == "White")
+```
+
+b) Calculating the difference between white and non-white voter turnout in states that adopted new voting restrictions and in states that did not, then comparing those differences.
+
+```{r}
+turnout <- function(nvr, white) {
+  mean(data$Voted[data$NewVotingRestriction == nvr & data$White == white], na.rm=TRUE)
+}
+```
+```{r}
+# Difference in states with new voting restrictions (nvr=1)
+turnout(1, 1) - turnout(1, 0)
+# Difference in states with no new restrictions (nvr=0)
+turnout(0, 1) - turnout(0, 0)
+```
+
+c) The difference is greater in states with new voting restrictions, showing that in states with no new restrictions turnout among minorities is higher relative to turnout among white people.
+
+## Pt 3: Extra Credit
+
+In the Alabama Voter ID study, Professor Hajnal's other comparison is the dimension of time. This variable is necessary to distinguish effect of the treatment from Alabama's normal turnout rate for black voters.
