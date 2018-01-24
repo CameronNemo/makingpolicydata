@@ -1,0 +1,46 @@
+---
+title: 'POLI 171: Problem Set 2'
+author: "Cameron Nemo"
+date: "January 23, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Union Membership and Ideology
+
+First, import the generated dataset and display it.
+
+```{r}
+df <- read.csv("data.csv")
+df
+```
+
+## Question 1
+
+a. Calculate Average Treatment Effect (ATE) of union membership on ideology
+
+```{r}
+df$te <- df$ideology_u - df$ideology_nu
+mean(df$te)
+```
+
+b. Calculate Average Treatment Effect on the Treated (ATT)
+
+```{r}
+mean(df$te[df$union == "Yes"])
+```
+
+c. The first estimator, ATE, measures the average change in ideology given every subject in the sample received treatment. The second estimator, ATT, measures the average change in ideology for only those subjects that selected into treatment.
+
+## Question 2
+
+a. Calculate Difference-in-Means Estimate (DM) when comparing the average ideology of union members to non-union members.
+
+```{r}
+mean(df$ideology_u[df$union == "Yes"]) - mean(df$ideology_nu[df$union == "No"])
+```
+
+b. Education level among workers could be an omitted variable that biases outcomes. More educated workers could be more likely to be employed in unionized jobs, and their higher education level could affect their ideology by making them more left leaning. This could explain why the DM estimate is greater than both the ATE and ATT.
