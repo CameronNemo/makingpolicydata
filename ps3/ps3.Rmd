@@ -1,0 +1,97 @@
+---
+title: "Problem Set 3: Oregon Health Plan"
+author: "Cameron Nemo"
+date: "February 1, 2018"
+output: html_document
+---
+
+```{r message=FALSE}
+load("OregonHealthPlan.rdata")
+library(lmtest)
+library(sandwich)
+```
+
+## Question 1: Compliance
+
+a. Calculate compliance rate in the treatment group as a proportion of those selected for treatment who enrolled.
+
+```{r}
+compliance <- length(data$OHP[data$OHP == "Enrolled"]) / length(data$OHP[data$Selected == "1"])
+compliance
+```
+
+b. Noncompliance is one-sided, since only those who were selected for enrollment were eligible to enroll and nobody enrolled who was not selected:
+
+```{r}
+length(data$Selected[data$OHP == "Enrolled" & data$Selected == "0"])
+```
+
+## Question 2: Balance on Pre-Treatment Variables
+
+a. Construct a table showing balance between treatment and control group means.
+
+```{r}
+# Create empty data frame
+pre_table <- as.data.frame(matrix(nrow=5, ncol=4))
+rownames(pre_table) <- c("Female", "Age", "White", "HospitalVisits08", "Income07")
+colnames(pre_table) <- c("treatment_mean", "control_mean", "difference", "p-value")
+
+# Populate each row using output from coeftest
+for (r in rownames(pre_table)) {
+  # create formula, regression, and coefficient test
+  f <- paste(r, "~ Selected")
+  mod <- lm(f, data=data)
+  t <- coeftest(mod, vcovHC(mod))
+  # use results to fill in table
+  pre_table[r, "control_mean"] <- t[1,1]
+  pre_table[r, "difference"] <- t[2,1]
+  pre_table[r, "p-value"] <- t[2,4]
+}
+
+# Calculate treatment mean and print the table
+pre_table$treatment_mean <- pre_table$control_mean + pre_table$difference
+pre_table
+```
+
+At 5% significance level, none of the pre-treatment variables are unbalanced.
+
+## Question 3: Effect of Treatment on Access to Health Care
+
+a. Calculate the Intention to Treat (ITT) effect on the likelihood of having unmet medical needs.
+
+```{r}
+itt_unmet <- lm(NeedUnmetMedicalCare09 ~ Selected, data=data)
+coeftest(itt_unmet, vcovHC(itt_unmet))
+```
+
+Being assigned to treatment resulted in a 9% decrease in likelihood of needing unmet medical care, and this effect is significant.
+
+b. Calculate the ITT effect on the number of primary care visits.
+
+```{r}
+itt_primary <- lm(PrimaryCareVisits ~ Selected, data=data)
+coeftest(itt_primary, vcovHC(itt_primary))
+```
+
+Being assigned to treatment resulted in an average increase of about 0.33 primary care visits. This increase is significant.
+
+c. Calculate the Average Treatment Effect on the Treated (ATT) of enrollment in OHP on primary care visits.
+
+```{r}
+coeftest(itt_primary, vcovHC(itt_primary))[2,1] / compliance
+```
+
+Enrolling in the program resulted in an increase of about one primary care visit.
+
+d. The Oregon Health Plan program was effective at increasing access to health care and improving health care outcomes. This is true for the ITT effects in (a) and (b), which were statistically significant, as well as for the ATT found in (c).
+
+## Question 4: Attrition
+
+a. Test whether the response rate was statistically different between the treatment and control groups.
+
+```{r}
+itt_response <- lm(Responded ~ Selected, data=data)
+coeftest(itt_response, vcovHC(itt_response))
+```
+
+Those who were not selected were more likely to respond to the survey, and this difference is statistically significant.
