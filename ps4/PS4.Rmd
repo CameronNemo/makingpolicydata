@@ -1,0 +1,134 @@
+---
+title: "Problem Set 4: National Supported Work Program"
+author: "Cameron Nemo"
+date: "February 21, 2018"
+output: html_document
+---
+
+```{r message=FALSE}
+library(lmtest)
+library(sandwich)
+library(MatchIt)
+library(cobalt)
+library(dplyr)
+
+load("HW4data.rdata")
+exp <- as_tibble(Experimental)
+o_cross <- as_tibble(ObservationalCross)
+o_panel <- as_tibble(ObservationalPanel)
+```
+
+# Question 1: The “True” Treatment Effect
+
+Use the `Experimental` dataset to calculate the treatment effect and test for balance.
+
+a. Calculate the effect of participation in the National Supported Work program on 1978 income.
+
+```{r}
+exp %>% lm(Income78 ~ NSW, data=.) %>% coeftest(vcovHC(., "HC2"))
+```
+
+Income of individuals who participated in the NSW program was $1794.34 higher than income of those who didn't participate. This increase in income is significant at the 99% confidence level.
+
+b. Verify that the treatment and control groups are balanced on the variables `Income74` and `Income75`.
+
+```{r}
+exp %>% lm(NSW ~ Income74, data=.) %>% coeftest(vcovHC(., "HC2"))
+exp %>% lm(NSW ~ Income75, data=.) %>% coeftest(vcovHC(., "HC2"))
+```
+
+For both variables, the effect of NSW participation is not statistically significant. At even the low 90% significance level, we fail to reject the null hypothesis that the means for the control and treatment groups are the same.
+
+# Question 2: Regression
+
+Using the `ObservationalCross` dataset, estimate the treatment effect using a regression on this non-experimental data.
+
+a. Regress `Income78` on `NSW`, interpret the regression, and compare to the regression in question 1, part a.
+
+```{r}
+o_cross %>% lm(Income78 ~ NSW, data=.) %>% coeftest(vcovHC(., "HC2"))
+```
+
+Of those that participated in the program, income was lower by a large margin ($15204.78), and this difference was significant at the 99.9% confidence level. The magnitude of this treatment effect is higher than that of question 1, but the direction is opposite. The result is more statistically significant in this regression.
+
+b. Verify that the treatment and control groups are balanced on the variables `Income74` and `Income75`.
+
+```{r}
+o_cross %>% lm(NSW ~ Income74, data=.) %>% coeftest(vcovHC(., "HC2"))
+o_cross %>% lm(NSW ~ Income75, data=.) %>% coeftest(vcovHC(., "HC2"))
+```
+
+At the 99.9% significance level, we reject the null hypothesis that the means for the two pre-treatment variables are balanced among treatment and control groups.
+
+c. Regress `Income78` on `NSW` and all of the pre-treatment variables, interpret, and compare.
+
+```{r}
+regressors <- colnames(o_cross %>% select(-Income78))
+r_formula <- as.formula(paste("Income78 ~", paste(regressors, collapse=" + ")))
+o_cross %>% lm(r_formula, data=.) %>% coeftest(vcovHC(., "HC2"))
+```
+
+Participation in the NSW program resulted in a $528.05 lower income in 1978, but this effect was not statistically significant. Age, Education, and previous income levels were statistically significant variables that affected income in 1978. The major difference between this regression and the two others is that the effect of participation in the NSW program is not significant.
+
+d. I don't think the regression in part c is controlling for all relevant pre-treatment variables. One possible omitted variable is gender, which could affect both likelihood of receiving treatment and the dependent variable.
+
+# Question 3: Propensity-Score Matching
+
+Using the `ObservationalCross` dataset, estimate the treatment effect with propensity score matching.
+
+a. Create a match model with all the pre-treatment variables.
+
+```{r message=FALSE, warning=FALSE}
+matches <- colnames(o_cross %>% select(-NSW, -Income78))
+m_formula <- as.formula(paste("NSW ~", paste(matches, collapse=" + ")))
+m_mod <- matchit(m_formula, o_cross, discard="both")
+m_mod
+```
+
+`182 / 185` is 98.4% of treated individuals kept.
+
+b. There are significant imbalances for the income, age, employment, and education variables. The imbalance for the income variables was mitigated to a large degree, but is still present in the matched group.
+
+```{r message=FALSE, warning=FALSE}
+love.plot(bal.tab(m_mod), abs=T)
+```
+
+c. Estimate the treatment effect using the matched data. Interpret and compare to question 1, part a.
+
+```{r}
+match.data(m_mod) %>% lm(r_formula, data=.) %>% coeftest(vcovHC(., "HC2"))
+```
+
+The effect of treatment was negative and insignificant. The only variables that had significance at the 95% confidence level were education and income in 1974. 
+
+d. Create a match model with just the Income74 and Income75 variables. Check for balance.
+
+```{r warning=FALSE}
+inc_m_mod <- matchit(NSW ~ Income74 + Income75, o_cross, discard="both")
+love.plot(bal.tab(inc_m_mod), abs=T)
+```
+
+Largely balanced for the variables matched on.
+
+e. Estimate the treatment effect using the new matched data. Interpret and compare to question 1, part a.
+
+```{r}
+match.data(inc_m_mod) %>% lm(r_formula, data=.) %>% coeftest(vcovHC(., "HC2"))
+```
+
+The treatment effect is positive in this regression, but still not significant. Age, then Education, have the greatest effect on income in 1978 according to this regression.
+
+f. The second model comes closer to the experimental results than the first model. It also has greater statistical confidence in the effect of treatment on the dependent variable. This suggests that matching on several variables is less effective than matching on one or a few in producing a result closest to the truth.
+
+# Question 4: Fixed Effects
+
+a. With the `ObservationalPanel` dataset, regress `Income` on `NSW` with fixed effects for the `Year` and `ID` variables. Interpret the coefficient for treatment and compare to questions 1a and 2c.
+
+```{r}
+panel_coef <- o_panel %>% lm(Income ~ NSW + as.factor(Year) + as.factor(ID), data=.) %>% coef()
+panel_coef["NSW"]
+```
+
+The effect of treatment is much closer to the true value according to the experimental results. It is positive, but only about half the magnitude of the effect of treatment in the experiment. The result in 2c is further from the truth, being negative. Nothing is know about the statistical significance of the result and how it compares to previous regressions.
+
+b. The fixed effects regression controls for unobservable variables that are heterogeneous and immutable within the observational study. A controlled regression like in question 2c cannot take these into account and performs worse than the fixed effects regression.
