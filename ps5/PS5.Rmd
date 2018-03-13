@@ -1,0 +1,92 @@
+---
+title: "Problem Set 5"
+author: "Cameron Nemo"
+date: "March 12, 2018"
+output: html_document
+---
+
+```{r message=FALSE}
+library(lmtest)
+library(sandwich)
+library(MatchIt)
+library(rdrobust)
+library(rdd)
+library(dplyr)
+
+load("HW5Data.rdata")
+source("vcovCluster.r")
+```
+
+# Recentralization and Infrastructure Provision
+
+## Question 1
+
+a. The time trend was dissimilar between treatment and control groups prior to treatment. In the control group, the proportion of communes with good roads slightly increased between the two pre-treatment time periods, while a decrease occured in the treatment group. The trends prior to treatment were opposite.
+
+b. Calculate difference-in-differences estimate of the treatment effect of commune recentralization on the proportion of communes that have good roads. The treatment increased the proportion of communes with good roads by `0.09`.
+
+```{r}
+# (after_treat - before_treat) - (after_control - before_control)
+(0.84 - 0.75) - (0.80 - 0.80)
+```
+
+## Question 2
+
+a. Calculate the difference-in-differences estimate using the `Vietnam` dataset. The treatment increased the proportion of communes with good roads by `0.10`, and was an important determinant at the 5% significance level. The effect according to the regression was higher than the effect computed in question 1, part b.
+
+```{r}
+# renaming variable so output fits in one panel
+Vietnam$reccom <- Vietnam$RecentralizedCommune
+lm(GoodRoad ~ reccom + After + reccom * After + factor(Province), data=Vietnam) %>%
+  coeftest(vcov=vcovCluster(., Vietnam$Province))
+```
+
+# Head Start Technical Assistance and Child Mortality
+
+## Question 3
+
+a. The running variable is `PovertyRate.1960` and the treatment threshold is `59.1984`.
+
+```{r}
+thresh <- 59.1984
+```
+
+b. Test for balance on pre-treatment variables with placebo Regression Discontinuity tests. Report robust coefficients and p-values.
+
+```{r}
+bal_table <- matrix(nrow=4, ncol=2,
+                    dimnames=list(c("PercentUrban.1960", "PercentBlack.1960",
+                                    "LogPopulation.1960", "ChildMortalityRate.1960s"),
+                                  c("difference", "p-value")))
+
+# Populate each row of the table using output from rdrobust
+for (r in rownames(bal_table)) {
+  bal <- rdrobust(HeadStart[r][[1]], HeadStart$PovertyRate.1960, c=thresh)
+  bal_table[r, "difference"] <- bal[[3]]["Robust",]
+  bal_table[r, "p-value"] <- bal[[7]]["Robust",]
+}
+
+bal_table
+```
+
+c. Calculate a regression discontinuity estimate of the treatment effect. The child mortality rate in the 1970s drops by 2.4 percent. This effect is statistically significant at the 5% level.
+
+```{r}
+summary(rdrobust(HeadStart$ChildMortalityRate.1970s, HeadStart$PovertyRate.1960, c=thresh))
+```
+
+d. The overall trend is that as the poverty rate increases, child mortality increases. At the treatment threshold, the child mortality rate falls off, then sharply increases to pre-treatment levels, then stays steady as the poverty rate increases further.
+
+```{r}
+rdplot(HeadStart$ChildMortalityRate.1970s, HeadStart$PovertyRate.1960, c=thresh,
+       title="Effect of Grant Assistance on Child Mortality",
+       x.label="Poverty Rate in 1960", y.label="Child Mortality Rate in 1970s")
+```
+
+e. There is low practicality of sorting into or out of the treatment group. Decision makers would need to know the criteria for the treatment selection five years prior to the initiation of the program. They would also have to know the poverty rate of all other counties prior to the census and adjust their poverty rate to be among the worst 300 counties. County leaders having the knowledge, capability, and willingness to manipulate a county's poverty rate under so much uncertainty is infeasible.
+
+f. Test for clumping or sorting around the treatment threshold by performing a McCrary density test. The null hypothesis is that there is no clumping around the cutoff threshold. The p-value in this case is `0.8873`, meaning we cannot reject the null hypothesis. There is no evidence of sorting or clumping around the threshold.
+
+```{r}
+DCdensity(HeadStart$PovertyRate.1960, thresh)
+```
