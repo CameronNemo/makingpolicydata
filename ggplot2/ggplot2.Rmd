@@ -1,0 +1,72 @@
+---
+title: "Data Visualisation with ggplot2"
+author: "Cameron Nemo"
+date: "February 21, 2018"
+output: html_document
+---
+
+# 0. Introduction
+
+```{r message=FALSE}
+library(dplyr)
+library(ggplot2)
+```
+
+`ggplot2` uses seven grammar elements form the layers of its visualisations.
+
+# 1. Data
+
+The first argument to `ggplot()` is the data set being visualized.
+
+```
+mt_plot <- mtcars %>% ggplot()
+```
+
+# 2. Aesthetics, and attributes
+
+Next, use an aesthetic mapping to link variables with visual elements in the plot.
+
+```{r}
+mt_plt <- mtcars %>% ggplot(aes(x=disp, y=mpg))
+```
+
+Aesthetics differ from attributes in that they are related to variables in the data, while attributes are constant.
+
+Aesthetics available include:
+
+* `x` and `y` axes
+* `color`, `fill`, `shape`, `linetype` usually used for categorical variables, but can be applied to continuous variables
+* `size` and `alpha` control size and transparency of shapes in the plot, usually used for continuous variables
+* `alpha` controls transparency of data elements in a plot
+* labels are also available
+
+While `color` applies to the outline of shapes, `fill` applies to the interior of shapes.
+
+On the `shape` aesthetic: it can have a value from 1-25. 1-20 only accept a `color` aesthetic, but 21-25 have both a `color` and a `fill` aesthetic. For example, when working with `geom_point`, setting shape to 21 allows one to use both the col and fill aesthetics.
+
+```{r}
+ggplot(mtcars, aes(x=wt, y=mpg, fill=cyl, col=am)) +
+  geom_point(shape=21, size=4, alpha=0.6)
+```
+
+## Modifying aesthetics
+
+position and scale functions can be used to modify aesthetics.
+
+position is usually set within the geom's function, but can also be added as a separate layer. For a bar chart, the default position is `"stack"`, but other options include `"fill"` for a proportional bar chart and `"dodge"` for side by side bars.
+
+scale functions are in the format `scale_AESTHETIC_METHOD`, such as `scale_x_continuous` or `scale_fill_manual`.
+
+The first argument, `scale_name` is the name of the scale that is used to label the axis or legend. By default it is the name of the variable mapped to the aesthetic. Other arguments include `values`, `labels`, `limits`, and `breaks`.
+
+# 3. Geometries
+
+# 4. Facets
+
+# 5. Statistics
+
+# 6. Coordinates
+
+# 7. Themes
+
+All non-data ink.

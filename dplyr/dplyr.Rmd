@@ -1,0 +1,126 @@
+---
+title: "dplyr"
+author: "Cameron Nemo"
+date: "February 13, 2018"
+output: html_document
+---
+
+```{r setup, message=FALSE}
+library(dplyr)
+library(hflights)
+```
+
+## data structures: tibbles and lookup tables
+
+Tibbles are an efficient and convenient way to model data. The `as_tibble` function can be used to transform a data frame, matrix, or list to a tbl. A tbl can be operated on just like a data frame. 
+
+```{r}
+# Convert the hflights df to a tbl, tfly
+tfly <- as_tibble(hflights)
+```
+
+Lookup tables are useful in transforming a variable
+
+```{r}
+# Create carrier codes from a lookup table
+lut <- c("AA" = "American", "AS" = "Alaska", "B6" = "JetBlue", "CO" = "Continental",
+         "DL" = "Delta", "OO" = "SkyWest", "UA" = "United", "US" = "US_Airways", 
+         "WN" = "Southwest", "EV" = "Atlantic_Southeast", "F9" = "Frontier", 
+         "FL" = "AirTran", "MQ" = "American_Eagle", "XE" = "ExpressJet", "YV" = "Mesa")
+unique(tfly$UniqueCarrier)
+unique(lut[tfly$UniqueCarrier])
+```
+
+## five verbs
+
+These functions manipulate the contents of the data, but do not modify in place. Their results must be stored to be persistent.
+
+When using column names, there is no need to prefix the tibble name. The verbs process their arguments in the context of the dataframe.
+
+### filter
+
+Subset by row. Only observations matching the logical expression are included.
+
+```{r}
+# Get average delay of each carrier in 2011
+tfly %>% filter(Year == 2011) %>% group_by(UniqueCarrier) %>% summarise(AvgDepDelay = mean(DepDelay, na.rm=TRUE))
+```
+
+### arrange
+
+Orders the observations according to (a) given variable(s). Priority for first stated variables is higher.
+
+`desc()` useful for descending order.
+
+```{r}
+# Group by carrier, and within each carrier by departure delay
+tfly %>% arrange(UniqueCarrier, DepDelay)
+# Order by descending departure delay
+tfly %>% arrange(desc(DepDelay))
+```
+
+### select
+
+Subset by column, can use ranges and can negate columns with `:` and `-`, respectively.
+
+```{r}
+# Available column names (variables)
+tfly %>% colnames
+# Subset the variables of the tbl
+tfly %>% select(Year:ArrTime, -DayofMonth) %>% colnames
+```
+
+### mutate
+
+Create new columns using existing information in a dataset. Argument(s) are `var_name=expression`.
+
+```{r}
+# Create a summed delay time variable
+tfly <- tfly %>% mutate(TotalDelay = ArrDelay + DepDelay)
+tfly %>% select(ends_with("Delay"))
+# Rank the delay times of each flight from shortest to longest
+tfly %>% mutate(DelayRank = rank(TotalDelay)) %>% select(contains("Delay"))
+```
+
+### summarise
+
+Creates a table of summary statistics for the tbl or each group. Unlike mutate, collapses existing information.
+
+```{r}
+# Mean and variance for all the flights in the tbl
+tfly %>% summarise(avg = mean(TotalDelay, na.rm=TRUE), var = var(TotalDelay, na.rm=TRUE))
+# Number of flights grouped by carrier
+tfly %>% group_by(UniqueCarrier) %>% summarise(flight_count = n())
+```
+
+## dplyr helper functions
+
+Useful for select: 
+
+* `starts_with(s)`, `ends_with(s)`, `contains(s)`, `matches(s)`, where s is a string to match
+* `num_range(prefix, range)`, where prefix is a string and range is vector of numbers
+* `one_of(vector)`, where vector is a string vector
+
+Useful for summarise:
+ 
+* `first(x)`, `last(x)`, `nth(x, n)` (element of a vector, x)
+* `n()`: number of observations in the tbl
+* `n_distinct(x)`: number of unique observations in the vector x, same as `length(unique(x))`
+* `group_by(...)`: takes one or more arguments to form groups
+
+`tally()`: wrapper for summarise, provides number of observations
+
+`count(...)`: like tally, but automatically groups and ungroups
+
+## notable base functions
+
+### rank
+
+```{r}
+vec <- seq(1, 10, by=2)
+rank(vec)
+rank(desc(vec))
+```
+
+## database operations
+
